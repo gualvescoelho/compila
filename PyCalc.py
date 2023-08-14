@@ -1,10 +1,10 @@
+from math import sqrt
 import sys
 import ply.lex as lex
 import ply.yacc as yacc
 from PySide6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QTextEdit, QPushButton, QLabel, QStackedWidget
 
-# Etapa 1: Definindo a gramática da linguagem
-tokens = ('NUMBER', 'PLUS', 'MINUS', 'TIMES', 'DIVIDE', 'VARIABLE', 'EQUALS', 'SEMICOLON')
+tokens = ('NUMBER', 'PLUS', 'MINUS', 'TIMES', 'DIVIDE', 'VARIABLE', 'EQUALS', 'SEMICOLON', 'SQRT')
 
 t_PLUS = r'\+'
 t_MINUS = r'-'
@@ -12,6 +12,7 @@ t_TIMES = r'\*'
 t_DIVIDE = r'/'
 t_EQUALS = r'='
 t_SEMICOLON = r';'
+t_SQRT = r'\^'
 t_ignore = ' \t\n'
 
 def t_VARIABLE(t):
@@ -28,13 +29,12 @@ def t_error(t):
     print(f"Caractere inválido: {t.value[0]}")
     t.lexer.skip(1)
 
-# Etapa 2: Implementando o analisador léxico
 lexer = lex.lex()
 
-# Etapa 3: Implementando o analisador sintático
 precedence = (
     ('left', 'PLUS', 'MINUS'),
     ('left', 'TIMES', 'DIVIDE'),
+    ('left', 'SQRT'),
 )
 
 variables = {}
@@ -49,21 +49,27 @@ def p_statements(p):
         p[0] = p[1] + p[2]
 
 def p_statement_assignment(p):
-    'statement : VARIABLE EQUALS expression SEMICOLON'
-    variables[p[1]] = p[3]
-    p[0] = [(p[1], p[3])]
+    '''statement : VARIABLE EQUALS expression SEMICOLON
+                 | expression SEMICOLON'''
+    if len(p) == 5:
+        variables[p[1]] = p[3]
+        p[0] = [(p[1], p[3])]
+    else:
+        p[0] = p[1]
 
 def p_expression(p):
     '''expression : expression PLUS term
                   | expression MINUS term
+                  | expression SQRT term
                   | term'''
-
     if len(p) == 4:
         if p[2] == '+':
             p[0] = p[1] + p[3]
-        else:
+        elif p[2] == '-':
             p[0] = p[1] - p[3]
-    else:
+        elif p[2] == '^':
+            p[0] = str(float(p[1]) ^ 1/p[3])
+    else: 
         p[0] = p[1]
 
 def p_term(p):
@@ -88,16 +94,14 @@ def p_factor(p):
     else:
         p[0] = p[1]
 
-# Error handling
 def p_error(p):
     if p:
         print(f"Erro de sintaxe em '{p.value}'")
     else:
-        print("Erro de sintaxe no final da entrada")
+        print("Erro de sintaxe na entrada, verificar ';'")
 
 parser = yacc.yacc()
 
-# Etapa 4: Gerando o código intermediário
 def compile_expr(expression):
     variables.clear()
     return parser.parse(expression)
